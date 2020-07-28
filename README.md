@@ -20,4 +20,14 @@ Once running the rasa server will expose the webhook at `/webhooks/airy/webhook`
 
 ## Testing the connector
 
-For testing the connector you can use [ngrok](https://ngrok.com/).   
+For testing the connector you can use [ngrok](https://ngrok.com/). 
+
+1) Replace the `secret` and `organization_id` with your webhook configuration values in the `credentials.yml` file
+
+2) Launch `ngrok http 5005` and keep it running
+
+3) Point your webhook subscription to the url assigned to you by ngrok
+
+4) `docker run -it  -p 5005:5005  -v $(pwd):/app rasa/rasa:1.10.8-full run`
+
+5) Send a test message like "Hello there!" to one of your connected source channels 

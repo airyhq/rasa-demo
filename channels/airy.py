@@ -41,7 +41,6 @@ class AiryBot(OutputChannel):
                 "text": text
             }
         }
-        logger.info("sending '%s' to recipient %s " % (text, recipient_id))
         requests.post("https://api.airy.co/send-message-public", headers=headers, json=body)
 
 
@@ -76,7 +75,9 @@ class AiryInput(InputChannel):
         return req.json["conversation_id"]
 
     def _is_user_message(self, req: Request) -> bool:
-        return self._extract_conversation_id(req) == req.json["sender"]["id"]
+        # For contact messages: sender id == conversation id
+        # For user messages: sender id == channel id
+        return self._extract_conversation_id(req) != req.json["sender"]["id"]
 
     def blueprint(
             self, on_new_message: Callable[[UserMessage], Awaitable[None]]
@@ -95,8 +96,7 @@ class AiryInput(InputChannel):
         async def receive(request: Request) -> HTTPResponse:
             conversation_id = request.json["conversation_id"]
             text = request.json.get("text", None)
-            logger.info("incoming request %s" % request.json)
-            logger.info("self.name() " + self.name())
+
             # Skip messages that are not sent from the source contact
             # but from an Airy user
             if self._is_user_message(request):
@@ -134,7 +134,7 @@ class AiryInput(InputChannel):
 
     def get_metadata(self, request: Request) -> Optional[Dict[Text, Any]]:
         return {
-            "source": request["source"]
+            "source": request.json["source"]
         }
 
     def get_output_channel(self) -> Optional["OutputChannel"]:
