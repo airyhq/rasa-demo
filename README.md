@@ -1,6 +1,7 @@
 # Airy Rasa Demo
 
 This project has been created using the `rasa init` command. Be sure to follow their [installation guide](https://rasa.com/docs/rasa/user-guide/installation/) before proceeding.
+ 
 
 ## Run locally
 
@@ -30,4 +31,24 @@ For testing the connector you can use [ngrok](https://ngrok.com/).
 
 4) `docker run -it  -p 5005:5005  -v $(pwd):/app rasa/rasa:1.10.8-full run`
 
-5) Send a test message like "Hello there!" to one of your connected source channels 
+5) Send a test message like "Hello there!" to one of your connected source channels
+
+## Deploying to Heroku
+
+Authenticate:
+
+```
+heroku login
+```
+
+Build and upload the image:
+
+```
+heroku container:push web
+```
+
+Release the image:
+
+```
+heroku container:release web
+```
