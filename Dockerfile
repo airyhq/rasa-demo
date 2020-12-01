@@ -1,4 +1,4 @@
-FROM rasa/rasa:1.10.8-full
+FROM rasa/rasa:2.1.2-full
 
 COPY . /app
 

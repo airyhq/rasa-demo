@@ -25,23 +25,22 @@ class AiryBot(OutputChannel):
     def name(cls) -> Text:
         return "airy"
 
-    def __init__(self, api_secret: Text, organization_id: Text) -> None:
-        self.api_secret = api_secret
-        self.organization_id = organization_id
+    def __init__(self, auth_token: Text, api_host: Text) -> None:
+        self.auth_token = auth_token
+        self.api_host = api_host
 
     async def send_text_message(self, recipient_id: Text, text: Text, **kwargs: Any) -> None:
         headers = {
-            "X-AUTH-AIRY": self.api_secret
+            "X-AUTH-AIRY": self.auth_token
         }
 
         body = {
-            "organization_id": self.organization_id,
             "conversation_id": recipient_id,
             "message": {
                 "text": text
             }
         }
-        requests.post("https://api.airy.co/send-message-public", headers=headers, json=body)
+        requests.post("http://{}/messages.send".format(self.api_host), headers=headers, json=body)
 
 
 class AiryInput(InputChannel):
@@ -62,21 +61,21 @@ class AiryInput(InputChannel):
 
         # pytype: disable=attribute-error
         return cls(
-            credentials.get("secret"),
-            credentials.get("organization_id")
+            credentials.get("auth_token"),
+            credentials.get("api_host"),
         )
         # pytype: enable=attribute-error
 
-    def __init__(self, api_secret: Text, organization_id: Text) -> None:
-        self.api_secret = api_secret
-        self.organization_id = organization_id
+    def __init__(self, auth_token: Text, api_host: Text) -> None:
+        self.auth_token = auth_token
+        self.api_host = api_host
 
     def _extract_conversation_id(self, req: Request) -> Optional[Text]:
         return req.json["conversation_id"]
 
     def _is_user_message(self, req: Request) -> bool:
         # For contact messages: sender id == conversation id
-        # For user messages: sender id == channel id
+        # For user messages: sender id == user id
         return self._extract_conversation_id(req) != req.json["sender"]["id"]
 
     def blueprint(
@@ -138,4 +137,4 @@ class AiryInput(InputChannel):
         }
 
     def get_output_channel(self) -> Optional["OutputChannel"]:
-        return AiryBot(self.api_secret, self.organization_id)
+        return AiryBot(self.auth_token, self.api_host)
