@@ -31,7 +31,7 @@ class AiryBot(OutputChannel):
 
     async def send_text_message(self, recipient_id: Text, text: Text, **kwargs: Any) -> None:
         headers = {
-            "X-AUTH-AIRY": self.auth_token
+            "Authorization": self.auth_token
         }
 
         body = {
@@ -40,7 +40,8 @@ class AiryBot(OutputChannel):
                 "text": text
             }
         }
-        requests.post("http://{}/messages.send".format(self.api_host), headers=headers, json=body)
+        print("Sending response", body)
+        requests.post("{}/messages.send".format(self.api_host), headers=headers, json=body)
 
 
 class AiryInput(InputChannel):
@@ -73,10 +74,12 @@ class AiryInput(InputChannel):
     def _extract_conversation_id(self, req: Request) -> Optional[Text]:
         return req.json["conversation_id"]
 
+    def _extract_sender_type(self, req: Request) -> Optional[Text]:
+        return req.json["sender"]["type"]
+
     def _is_user_message(self, req: Request) -> bool:
-        # For contact messages: sender id == conversation id
-        # For user messages: sender id == user id
-        return self._extract_conversation_id(req) != req.json["sender"]["id"]
+        # See https://docs.airy.co/glossary#fields
+        return self._extract_sender_type(req) != "source_contact"
 
     def blueprint(
             self, on_new_message: Callable[[UserMessage], Awaitable[None]]
@@ -95,7 +98,7 @@ class AiryInput(InputChannel):
         async def receive(request: Request) -> HTTPResponse:
             conversation_id = request.json["conversation_id"]
             text = request.json.get("text", None)
-
+            print("Received request", request.json)
             # Skip messages that are not sent from the source contact
             # but from an Airy user
             if self._is_user_message(request):
