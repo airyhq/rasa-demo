@@ -10,7 +10,7 @@ Be sure to follow their [installation guide](https://rasa.com/docs/rasa/user-gui
 
 ## Run with Docker
 
-`docker run -it  -p 5005:5005  -v $(pwd):/app rasa/rasa:2.1.2-full run`
+`docker run -it -p 5005:5005  -v $(pwd):/app rasa/rasa:2.1.2-full run`
 
 Instead of run you can also use any other rasa command like `train` and the changes will be reflected in this directory.
 
@@ -24,7 +24,7 @@ Once running the rasa server will expose the webhook at `/webhooks/airy/webhook`
 
 For testing the connector you can use [ngrok](https://ngrok.com/). 
 
-1) Replace the `auth_token` and `api_host` in the `credentials.yml` file
+1) Replace the `system_token` and `api_host` in the `credentials.yml` file
 
 2) Launch `ngrok http 5005` and keep it running
 

@@ -1,5 +1,4 @@
 import inspect
-import inspect
 import logging
 from asyncio import CancelledError
 from typing import Text, Dict, Any, Optional, Callable, Awaitable
@@ -25,15 +24,15 @@ class AiryBot(OutputChannel):
     def name(cls) -> Text:
         return "airy"
 
-    def __init__(self, auth_token: Text, api_host: Text) -> None:
-        self.auth_token = auth_token
+    def __init__(self, system_token: Text, api_host: Text) -> None:
+        self.system_token = system_token
         self.api_host = api_host
 
     async def send_text_message(self, recipient_id: Text, text: Text, **kwargs: Any) -> None:
         headers = {
-            "Authorization": self.auth_token
+            "Authorization": self.system_token
         }
-
+        print(kwargs)
         body = {
             "conversation_id": recipient_id,
             "message": {
@@ -62,24 +61,22 @@ class AiryInput(InputChannel):
 
         # pytype: disable=attribute-error
         return cls(
-            credentials.get("auth_token"),
+            credentials.get("system_token"),
             credentials.get("api_host"),
         )
         # pytype: enable=attribute-error
 
-    def __init__(self, auth_token: Text, api_host: Text) -> None:
-        self.auth_token = auth_token
+    def __init__(self, system_token: Text, api_host: Text) -> None:
+        self.system_token = system_token
         self.api_host = api_host
 
-    def _extract_conversation_id(self, req: Request) -> Optional[Text]:
-        return req.json["conversation_id"]
-
-    def _extract_sender_type(self, req: Request) -> Optional[Text]:
-        return req.json["sender"]["type"]
-
     def _is_user_message(self, req: Request) -> bool:
+        # See https://airy.co/docs/core/api/webhook
+        return req.json["payload"]["message"]["from_contact"] is False
+
+    def _is_text_message(self, req: Request) -> bool:
         # See https://docs.airy.co/glossary#fields
-        return self._extract_sender_type(req) != "source_contact"
+        return req.json["type"] == "message" and "text" in req.json["payload"]["message"]["content"]
 
     def blueprint(
             self, on_new_message: Callable[[UserMessage], Awaitable[None]]
@@ -96,13 +93,14 @@ class AiryInput(InputChannel):
 
         @airy_webhook.route("/webhook", methods=["POST"])
         async def receive(request: Request) -> HTTPResponse:
-            conversation_id = request.json["conversation_id"]
-            text = request.json.get("text", None)
             print("Received request", request.json)
-            # Skip messages that are not sent from the source contact
-            # but from an Airy user
-            if self._is_user_message(request):
+            # Skip events that are not messages and messages
+            # that are not sent from the source contact but from an Airy user
+            if not self._is_text_message(request) or self._is_user_message(request):
                 return response.text("success")
+
+            conversation_id = request.json["payload"]["conversation_id"]
+            text = request.json["payload"]["message"]["content"].get("text", None)
 
             input_channel = self.name()
             metadata = self.get_metadata(request)
@@ -136,8 +134,9 @@ class AiryInput(InputChannel):
 
     def get_metadata(self, request: Request) -> Optional[Dict[Text, Any]]:
         return {
-            "source": request.json["source"]
+            "source": request.json["payload"]["message"]["source"],
+            "message_id": request.json["payload"]["message"]["id"]
         }
 
     def get_output_channel(self) -> Optional["OutputChannel"]:
-        return AiryBot(self.auth_token, self.api_host)
+        return AiryBot(self.system_token, self.api_host)
