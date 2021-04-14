@@ -1,7 +1,7 @@
 import inspect
 import logging
 from asyncio import CancelledError
-from typing import Text, Dict, Any, Optional, Callable, Awaitable
+from typing import Text, Dict, Any, Optional, Callable, Awaitable, List
 
 import requests
 from rasa.core.channels import UserMessage, InputChannel
@@ -24,23 +24,29 @@ class AiryBot(OutputChannel):
     def name(cls) -> Text:
         return "airy"
 
-    def __init__(self, system_token: Text, api_host: Text) -> None:
+    def __init__(self, system_token: Text, api_host: Text, last_message_id: Text) -> None:
         self.system_token = system_token
         self.api_host = api_host
+        self.last_message_id = last_message_id
 
-    async def send_text_message(self, recipient_id: Text, text: Text, **kwargs: Any) -> None:
+    async def send_response(self, recipient_id: Text, message: Dict[Text, Any]) -> None:
         headers = {
             "Authorization": self.system_token
         }
-        print(kwargs)
-        body = {
-            "conversation_id": recipient_id,
-            "message": {
-                "text": text
+        if message.get("custom"):
+            body = {
+                "message_id": self.last_message_id,
+                "suggestions": message.get("custom")
             }
-        }
-        print("Sending response", body)
-        requests.post("{}/messages.send".format(self.api_host), headers=headers, json=body)
+            requests.post("{}/messages.suggestReplies".format(self.api_host), headers=headers, json=body)
+        elif message.get("text"):
+            body = {
+                "conversation_id": recipient_id,
+                "message": {
+                    "text": message.get("text")
+                }
+            }
+            requests.post("{}/messages.send".format(self.api_host), headers=headers, json=body)
 
 
 class AiryInput(InputChannel):
@@ -105,7 +111,7 @@ class AiryInput(InputChannel):
             input_channel = self.name()
             metadata = self.get_metadata(request)
 
-            airy_out = self.get_output_channel()
+            airy_out = self.get_output_channel(request.json["payload"]["message"]["id"])
             # noinspection PyBroadException
             try:
                 await on_new_message(
@@ -138,5 +144,5 @@ class AiryInput(InputChannel):
             "message_id": request.json["payload"]["message"]["id"]
         }
 
-    def get_output_channel(self) -> Optional["OutputChannel"]:
-        return AiryBot(self.system_token, self.api_host)
+    def get_output_channel(self, message_id) -> Optional["OutputChannel"]:
+        return AiryBot(self.system_token, self.api_host, message_id)
