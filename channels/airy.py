@@ -1,5 +1,6 @@
 import inspect
 import logging
+import time
 from asyncio import CancelledError
 from typing import Text, Dict, Any, Optional, Callable, Awaitable, List
 
@@ -30,6 +31,7 @@ class AiryBot(OutputChannel):
         self.last_message_id = last_message_id
 
     async def send_response(self, recipient_id: Text, message: Dict[Text, Any]) -> None:
+        print("send message ", message)
         headers = {
             "Authorization": self.system_token
         }
@@ -38,6 +40,8 @@ class AiryBot(OutputChannel):
                 "message_id": self.last_message_id,
                 "suggestions": message.get("custom")
             }
+            # TODO The communication API may not have caught up with the message. This should be a back off retry
+            time.sleep(1)
             requests.post("{}/messages.suggestReplies".format(self.api_host), headers=headers, json=body)
         elif message.get("text"):
             body = {
@@ -99,7 +103,6 @@ class AiryInput(InputChannel):
 
         @airy_webhook.route("/webhook", methods=["POST"])
         async def receive(request: Request) -> HTTPResponse:
-            print("Received request", request.json)
             # Skip events that are not messages and messages
             # that are not sent from the source contact but from an Airy user
             if not self._is_text_message(request) or self._is_user_message(request):
@@ -107,7 +110,7 @@ class AiryInput(InputChannel):
 
             conversation_id = request.json["payload"]["conversation_id"]
             text = request.json["payload"]["message"]["content"].get("text", None)
-
+            print("received req", request.json)
             input_channel = self.name()
             metadata = self.get_metadata(request)
 
